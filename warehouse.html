@@ -1,0 +1,17 @@
+<script type="text/ng-template"  id="tree_item_renderer.html">
+    <div class="name" ng-click="isClicked(table)">{{ table.name }}</div>
+	<div class="updateTime" ng-click="isClicked(table)">{{ table.updateTime }}</div>
+	<div class="limit" ng-click="isClicked(table)" ng-class="table.updateTimeInMilies > limit ? 'green' : 'red'"></div>
+	<div class="dependency" ng-class="{'hidden': !isSelected(table)}" ng-repeat="table in table.dependencies" ng-include="'tree_item_renderer.html'" >
+    </div>	
+</script>
+  
+<div class="tableList">
+	<div class="table" ng-repeat="table in filteredTables" ng-include="'tree_item_renderer.html'"></div>	
+</div>
+  
+
+
+
+
+ 

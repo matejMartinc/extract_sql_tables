@@ -80,8 +80,6 @@ var extractTables = function(query) {
         query = query.replace(/( inner| cross)* join/g, ' join');
         query = query.replace(/natural (((left|right)( outer)*) |inner )*join /g, ' join ');
 
-        console.log(query);
-
         //find tables in cleaned query
         tableExpression(query);
     }
@@ -163,3 +161,276 @@ var removeItems = function() {
     var myNode = document.getElementById("list");
     myNode.innerHTML = '';
 }
+
+var CSVToArray = function( strData, strDelimiter ){
+        // Check to see if the delimiter is defined. If not,
+        // then default to comma.
+        strDelimiter = (strDelimiter || ",");
+
+        // Create a regular expression to parse the CSV values.
+        var objPattern = new RegExp(
+            (
+                // Delimiters.
+                "(\\" + strDelimiter + "|\\r?\\n|\\r|^)" +
+
+                // Quoted fields.
+                "(?:\"([^\"]*(?:\"\"[^\"]*)*)\"|" +
+
+                // Standard fields.
+                "([^\"\\" + strDelimiter + "\\r\\n]*))"
+            ),
+            "gi"
+            );
+
+        var arrData = [[]];
+        var arrMatches = null;
+        while (arrMatches = objPattern.exec( strData )){
+
+            // Get the delimiter that was found.
+            var strMatchedDelimiter = arrMatches[ 1 ];
+
+            if (strMatchedDelimiter.length && strMatchedDelimiter !== strDelimiter){
+                arrData.push( [] );
+            }
+
+            var strMatchedValue;
+
+            //check to see which kind of value we
+            // captured (quoted or unquoted).
+            if (arrMatches[ 2 ]){
+
+                // We found a quoted value. 
+                strMatchedValue = arrMatches[ 2 ].replace(
+                    new RegExp( "\"\"", "g" ),
+                    "\""
+                    );
+
+            } else {
+
+                // We found a non-quoted value.
+                strMatchedValue = arrMatches[ 3 ];
+            }
+
+            arrData[ arrData.length - 1 ].push( strMatchedValue );
+        }
+
+        // Return the parsed data.
+        return( arrData );
+    }
+
+var app = angular.module('app', ['ngRoute']);
+
+app.service('DataSort', function($http){
+
+    this.idGenerator = function() {
+        var S4 = function() {
+           return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
+        };
+        return (S4()+S4()+"-"+S4()+"-"+S4()+"-"+S4()+"-"+S4()+S4()+S4());
+    }
+
+    this.getData = function(callback) {
+        $http.get("./data/dependencias.csv")
+            .then(function(response1) {
+                $http.get("./data/actualizaciones.csv")
+                .then(function(response2) {
+                    
+                    var tables = {};
+                    var dependencyArray = CSVToArray(response1.data, ';');
+                    var tableArray = CSVToArray(response2.data, ';');
+                    
+                    for(var i in tableArray) {
+                        if(i != 0 && tableArray[i].length == 3) {
+                            var name = tableArray[i][0] + "." + tableArray[i][1];
+                            var updateTime = tableArray[i][2];
+                            var dayandhour= updateTime.split(" ");
+                            var day = dayandhour[0].split("/");
+                            updateTime = new Date(day[2] + "/" + day[1] + "/" + day[0] + " " + dayandhour[1]);
+                            if (tables.hasOwnProperty(name)) {
+                                tables[name][0].push(updateTime);
+                            }
+                            else {
+                                tables[name] = [[],[]];
+                                tables[name][0].push(updateTime);
+                            }
+                        }
+                    }
+
+                    for(var i in dependencyArray) {
+                        if(i != 0 && dependencyArray[i].length == 4) {
+                            var name = dependencyArray[i][0] + "." + dependencyArray[i][1];
+                            var dependencyName = dependencyArray[i][2] + "." + dependencyArray[i][3];
+                            tables[name][1].push(dependencyName);  
+                        }
+                    }
+                    callback(tables);  
+                });
+            });
+    }
+
+    this.tables = [];
+
+    this.sortData = function(data, tables, parent) {
+        for (var property in data) {
+            if (data.hasOwnProperty(property)) {
+                var updates = data[property][0].sort(function(a,b){
+                    return b.getTime() - a.getTime();
+                });
+                var id = this.idGenerator();
+                var day = updates[0].getDate();
+                var month = updates[0].getMonth();
+                var year = updates[0].getFullYear();
+                var hours = updates[0].getHours();
+                var minutes = updates[0].getMinutes();
+                minutes = minutes < 10 ? '0' + minutes : minutes;
+                hours = hours < 10 ? '0' + hours : hours;
+
+                var dependencies = data[property][1];
+                var newData = {};
+                var newTables = [];
+                if(dependencies.length != 0) {
+                    for(var i in dependencies) {
+                        if (data.hasOwnProperty(dependencies[i])) {
+                            newData[dependencies[i]] = data[dependencies[i]];
+                            newTables = [];
+                            this.sortData(newData, newTables, id)
+                        }    
+                    }
+                }
+
+                if(newTables.length > 0)
+                    property = "+ " + property;
+                else
+                    property = "- " + property;
+
+                var table = {
+                    "id" : id,
+                    "parent" : parent,
+                    "name" : property,
+                    "updateTime" : day + "/" + (month + 1) + "/" + year + " " + hours + ":" + minutes, 
+                    "updateTimeInMilies" : updates[0].getTime(),
+                    "dependencies" : newTables,
+                    "date" : updates[0].getTime()
+                }
+                tables.push(table);   
+            }            
+        }
+    }
+
+    this.filterData = function(data) {
+        var filteredTables = [];
+        for(var i in data) {
+            //console.log(data[i].dependencies.length);
+            if(data[i].dependencies.length != 0) {
+                filteredTables.push(data[i]);
+            }
+        }
+        return filteredTables;
+    }
+});
+
+
+// Config and Routes 
+app.config(function($routeProvider){
+    $routeProvider
+        .when('/', {
+            templateUrl: "warehouse.html"
+        })
+        .when('/stage/', {
+            templateUrl: "stagearea.html"
+        })
+})
+
+app.controller('LoadTables', function($scope, DataSort, $location) {
+    DataSort.getData(function(data) {
+        DataSort.sortData(data, DataSort.tables, "");
+        $scope.tables = DataSort.tables;     
+        $scope.filteredTables = DataSort.filterData($scope.tables);
+    });
+
+    $scope.limit = new Date("2014/12/14 1:02").getTime();
+    $scope.clicked = [];
+    $scope.warehouse = true;
+
+    $scope.isClicked = function(table) {
+        var index = $scope.clicked.indexOf(table.id);
+        
+        if(index == -1) {
+            table.name = "-"+table.name.substring(1);
+            $scope.clicked.push(table.id);
+        }    
+        else {
+            table.name = "+"+table.name.substring(1);
+            $scope.clicked.splice(index, 1);
+        }          
+    }
+
+    $scope.isSelected = function(table) {
+        for(var i in $scope.clicked) {
+            if(table.parent == $scope.clicked[i])
+                return true;
+        }
+        
+        return false;
+    }
+
+    $scope.sort = function(type, tables) {
+
+        if(!tables) {
+            console.log($scope.warehouse)
+            if(!$scope.warehouse)
+                tables = $scope.tables;
+            else
+                tables = $scope.filteredTables;
+        }
+
+        if(type == 0) {
+            tables.sort(function(a,b){
+                if (a.name.substring(1) < b.name.substring(1))
+                    return -1;
+                if (a.name.substring(1) > b.name.substring(1))
+                    return 1;
+                return 0;
+            });
+        }
+        else if (type == 1) {
+            tables.sort(function(a,b){
+                if (a.name.substring(1) > b.name.substring(1))
+                    return -1;
+                if (a.name.substring(1) < b.name.substring(1))
+                    return 1;
+                return 0;
+            });
+        }
+          
+        else if (type == 2 ) {
+            tables.sort(function(a,b){
+                return b.date - a.date;
+            });
+        }
+        else if (type == 3 ) {
+            tables.sort(function(a,b){
+                return a.date - b.date;
+            });           
+        }
+        for(var i in tables) {
+            if(tables[i].dependencies.length > 0) {
+                $scope.sort(type, tables[i].dependencies);
+            }
+        }
+    }
+
+    $scope.tab = function (tabIndex) {
+     
+        if (tabIndex == 1){
+            $scope.warehouse = true;
+            $location.path('/');
+        }   
+      
+        if (tabIndex == 2){
+            $scope.warehouse = false;
+            $location.path('/stage/');
+        }
+   };
+});
+
