@@ -1,6 +1,6 @@
 
 <div class="tableList">
-	<div class="table" ng-repeat="table in tables">
+	<div class="table" ng-repeat="table in tables | searchFor:searchString">
 	    <div class="name">{{ table.name }}</div>
 	    <div class="updateTime">{{ table.updateTime }}</div>
 	    <div class="limit" ng-class="table.updateTimeInMilies > limit ? 'green' : 'red'"></div>

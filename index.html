@@ -2,21 +2,29 @@
     <head>
         <meta http-equiv="content-type" content="text/html; charset=UTF-8">
         <title>Extract sql tables</title>
-        <link href="./style.css" rel="stylesheet" type="text/css">
+        <link href="./css/style.css" rel="stylesheet" type="text/css">
+        <link href="./css/jquery-ui.css" rel="stylesheet">
+
     </head>
 
     <body>
+        <script src="./javascript/jquery.js"></script>
+        <script src="./javascript/jquery-ui.min.js"></script>
         <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script> 
         <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-route.js"></script> 
         <div class="left"></div>
         <div class="middle" ng-app="app" ng-controller="LoadTables">
             <div class="query">
-                <textarea id="queryText">
+                <textarea id="queryText" ng-model="query" ng-change="checkEmpty()">
                 </textarea>
-                <button type="button" onclick="getQuery()">Get tables</button>
-                <button type="button" onclick="erase()">Clear</button> 
+                <button type="button" ng-click="getQuery(query)">Get tables</button>
+                <button type="button" ng-click="clearQuery()">Clear</button> 
             </div>
             <br/> 
+            <div class="search">
+                <div><input type="text" id="datepicker" placeholder=" Date" ng-model="searchString.date"></div>
+                <div id="search"><input type="text" placeholder=" Search" ng-model="searchString.name"></div>
+            </div>
 
             <div class="tabs">
                 <button type="button" ng-click="tab(1)" ng-class="warehouse ? 'chosen' : 'notchosen'">warehouse</button>
@@ -39,6 +47,7 @@
             <ul id="list"></ul> 
         </div>
         <div class="right"></div>
-        <script src="./main.js" charset="utf-8"></script>   
+        <script src="./javascript/main.js" charset="utf-8"></script>  
+         
     </body>
 </html>
