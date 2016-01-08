@@ -49,18 +49,16 @@ app.service('DataSort', function($http){
         for(var i in queryArray) {
             query = queryArray[i];
 
-            //change text to lowercase, remove line breaks, unnecessary white space and comments
+            //change text to lowercase, remove line breaks and unnecessary white space
             query = query.toLowerCase();
             query = query.replace(/\n/g, ' ');
             query = query.replace(/ +/g, ' ');
             query = query.replace(/ +,/g, ',');
-            query = query.replace(/\/\*[^\*\/]*\*\//g, '');
 
             //substitute left right outer cross, natural joins with "join".
             query = query.replace(/ (left|right) (outer )*join /g, ' join ');
             query = query.replace(/( inner| cross)* join/g, ' join');
             query = query.replace(/natural (((left|right)( outer)*) |inner )*join /g, ' join ');
-            console.log(query);
 
             //find tables in cleaned query
             tableExpression(query);
@@ -186,7 +184,6 @@ app.service('DataSort', function($http){
         return( arrData );
     }
 
-    //creates unique id for every table object in the list
     this.idGenerator = function() {
         var S4 = function() {
            return (((1+Math.random())*0x10000)|0).toString(16).substring(1);
@@ -194,7 +191,6 @@ app.service('DataSort', function($http){
         return (S4()+S4()+"-"+S4()+"-"+S4()+"-"+S4()+"-"+S4()+S4()+S4());
     }
 
-    //fetch data from csv files and save them in the 'tables' object that enables efficient further processing
     this.getData = function(callback) {
         $http.get("./data/dependencias.csv")
             .then(function(response1) {
@@ -299,9 +295,9 @@ app.service('DataSort', function($http){
         angular.forEach(data, function(item){
 
             for(var i in item.updateTimes) {
-                
+                console.log(item);
                 if(item.dependencies.length > 0) {
-                    me.changeDate(item.dependencies, date);
+                    this.changeDate(item.dependencies, date);
                 }
                 var update = item.updateTimes[i];
                 if(update.getTime() <= date.getTime()) {
@@ -317,7 +313,7 @@ app.service('DataSort', function($http){
                     break;
                 }
                 else if (update.getTime() > date.getTime() && i == item.updateTimes.length - 1) {
-                    item.updateTime = "no data" 
+                    item.updateTime = "/" 
                     item.updateTimeInMilies = 0;
                     break;
                 }          
@@ -327,7 +323,7 @@ app.service('DataSort', function($http){
     }
 });
 
-app.filter('searchFor', function(DataSort){
+app.filter('searchFor', function(){
 
     // All filters must return a function. The first parameter
     // is the data that is to be filtered, and the second is an
@@ -386,7 +382,7 @@ app.filter('searchFor', function(DataSort){
                 var day = searchString.date.split("/")[0];
                 var month = searchString.date.split("/")[1];
                 var year = searchString.date.split("/")[2];
-                var date = new Date(year, month - 1, day, 23, 59, 59, 0);
+                var date = new Date(year, month - 1, day, 0, 0, 0, 0);
             }
 
             else {
@@ -420,12 +416,11 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
 
     $scope.limit = new Date("2014/12/14 1:02").getTime();
     $scope.clicked = [];
-    if($location.path() == "/" || $location.path() == "")
+    if($location.path() == "/")
         $scope.warehouse = true;
     else
         $scope.warehouse = false;
     $scope.searchString;
-    console.log($location.path());
     $scope.query;
 
     $scope.isClicked = function(table) {
@@ -543,3 +538,6 @@ $( "#datepicker" ).datepicker({
     inline: true,
     dateFormat: "dd/mm/yy"
 });
+
+
+

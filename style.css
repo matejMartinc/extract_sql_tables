@@ -1,3 +1,5 @@
+
+
 .left {
 	width:20%;
 	height:100%;
@@ -32,7 +34,6 @@ button {
 	border: 1px solid grey;
 	min-height: 1px;
 	overflow: hidden;
-    white-space: nowrap;
 }
 
 .tableList {
@@ -79,6 +80,19 @@ button.notchosen:hover {
 	padding-left: 20px;
 }
 
+@media screen and (max-width: 640px) {
+    .left {
+		width:0%;
+	}
+	.right {
+		width: 0%;
+	}
+
+	.middle {
+		width:100%;
+	}
+}
+
 div.table {
    font-size:11px; 
    width: 100%;
@@ -104,8 +118,6 @@ div.dependency {
     padding: 5px;
     float:left;
     margin: 0px;
-    overflow: hidden;
-    white-space: nowrap;
 }
 
 .name {
@@ -113,11 +125,11 @@ div.dependency {
 }
 
 .updateTime {
-	width:22%;
+	width:25%;
 }
 
 .limit {
-	width:8%;
+	width:5%;
 }
 
 div.table:nth-child(odd)	{
@@ -198,23 +210,4 @@ div.dependency:nth-child(even) {
     margin : 0 auto;
     width: 98%;
     height:30px;
-}
-
-@media screen and (max-width: 800px) {
-    .left {
-		width:0%;
-	}
-	.right {
-		width: 0%;
-	}
-
-	.middle {
-		width:100%;
-	}
-}
-
-@media screen and (max-width: 600px) {
-    div.table {
-        font-size:9px; 
-    }
 }
