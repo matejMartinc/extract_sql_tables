@@ -202,16 +202,22 @@ app.service('DataSort', function($http){
                 .then(function(response2) {
                     
                     var tables = {};
+
+                    //create array of table and dependency data
                     var dependencyArray = CSVToArray(response1.data, ';');
                     var tableArray = CSVToArray(response2.data, ';');
                     
                     for(var i in tableArray) {
                         if(i != 0 && tableArray[i].length == 3) {
+
+                            //split date string and create Date object
                             var name = tableArray[i][0] + "." + tableArray[i][1];
                             var updateTime = tableArray[i][2];
                             var dayandhour= updateTime.split(" ");
                             var day = dayandhour[0].split("/");
                             updateTime = new Date(day[2] + "/" + day[1] + "/" + day[0] + " " + dayandhour[1]);
+
+                            //add tables name with array of update times to tables object
                             if (tables.hasOwnProperty(name)) {
                                 tables[name][0].push(updateTime);
                             }
@@ -222,6 +228,7 @@ app.service('DataSort', function($http){
                         }
                     }
 
+                    //add dependencies to tables inside tables object
                     for(var i in dependencyArray) {
                         if(i != 0 && dependencyArray[i].length == 4) {
                             var name = dependencyArray[i][0] + "." + dependencyArray[i][1];
@@ -229,16 +236,22 @@ app.service('DataSort', function($http){
                             tables[name][1].push(dependencyName);  
                         }
                     }
+
+                    //call this callback function after data is read and tables object is created
                     callback(tables);  
                 });
             });
     }
 
+    //empty array that is used for storing tables as objects
     this.tables = [];
 
+    //rescursive function for creating objects with table id, name dependencies and dates. Tables are stored in list
     this.sortData = function(data, tables, parent) {
         for (var property in data) {
             if (data.hasOwnProperty(property)) {
+
+                //sort updatetimes array by date, from newest to oldesr
                 var updates = data[property][0].sort(function(a,b){
                     return b.getTime() - a.getTime();
                 });
@@ -254,6 +267,8 @@ app.service('DataSort', function($http){
                 var dependencies = data[property][1];
                 var newData = {};
                 var newTables = [];
+
+                //check if tables has dependencies and sort them recursively
                 if(dependencies.length != 0) {
                     for(var i in dependencies) {
                         if (data.hasOwnProperty(dependencies[i])) {
@@ -271,9 +286,15 @@ app.service('DataSort', function($http){
 
                 var table = {
                     "id" : id,
+
+                    //this is empty string if table is on first level, or name of the table, if table is a dependnecy
                     "parent" : parent,
                     "name" : property,
+
+                    //newest updateTime as string
                     "updateTime" : day + "/" + (month + 1) + "/" + year + " " + hours + ":" + minutes, 
+
+                    //newest update written in milliseconds, used for sorting
                     "updateTimeInMilies" : updates[0].getTime(),
                     "dependencies" : newTables,
                     "updateTimes" : updates
@@ -283,6 +304,7 @@ app.service('DataSort', function($http){
         }
     }
 
+    //find only tables with dependencies - warehouse
     this.filterData = function(data) {
         var filteredTables = [];
         for(var i in data) {
@@ -294,15 +316,19 @@ app.service('DataSort', function($http){
         return filteredTables;
     }
 
+    //recursive function for date filtering
     this.changeDate = function(data, date) {
         
         angular.forEach(data, function(item){
 
             for(var i in item.updateTimes) {
-                
+
+                //if table has dependencies, change update time recursively for dependencies
                 if(item.dependencies.length > 0) {
                     me.changeDate(item.dependencies, date);
                 }
+
+                //find update time, that is older than the time specified in filter
                 var update = item.updateTimes[i];
                 if(update.getTime() <= date.getTime()) {
                     var day = update.getDate();
@@ -316,6 +342,8 @@ app.service('DataSort', function($http){
                     item.updateTimeInMilies = update.getTime()
                     break;
                 }
+
+                //if there is no older time, write no data
                 else if (update.getTime() > date.getTime() && i == item.updateTimes.length - 1) {
                     item.updateTime = "no data" 
                     item.updateTimeInMilies = 0;
@@ -327,6 +355,7 @@ app.service('DataSort', function($http){
     }
 });
 
+//filter tables list
 app.filter('searchFor', function(DataSort){
 
     // All filters must return a function. The first parameter
@@ -342,6 +371,7 @@ app.filter('searchFor', function(DataSort){
         var result = arr;
         var filteredResult = [];
 
+        //filter by list of tables found in the query
         if(searchString.query && searchString.query.length > 1) {
 
             // Using the forEach helper method to loop through the array
@@ -364,6 +394,7 @@ app.filter('searchFor', function(DataSort){
             filteredResult = [];
         }
 
+        //filter by name
         if(searchString.name) {
             var name = searchString.name.toLowerCase();
 
@@ -380,6 +411,7 @@ app.filter('searchFor', function(DataSort){
             filteredResult = [];
         }
 
+        //filter by date 
         if(searchString.date || searchString.date == ""){
             if(searchString.date.length > 9) {
             
@@ -411,6 +443,7 @@ app.config(function($routeProvider){
         })
 })
 
+//controller for the app. Loads data and sorts it
 app.controller('LoadTables', function($scope, DataSort, $location) {
     DataSort.getData(function(data) {
         DataSort.sortData(data, DataSort.tables, "");
@@ -419,7 +452,11 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
     });
 
     $scope.limit = new Date("2014/12/14 1:02").getTime();
+
+    //list of 'opened tables' (dependencies are visible)
     $scope.clicked = [];
+
+    //find the right data on page load (warehouse or stage area)
     if($location.path() == "/" || $location.path() == "")
         $scope.warehouse = true;
     else
@@ -428,6 +465,7 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
     console.log($location.path());
     $scope.query;
 
+    //on table click push table to list of openend tables or remove it form the list if table is there
     $scope.isClicked = function(table) {
         var index = $scope.clicked.indexOf(table.id);
         
@@ -441,6 +479,7 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
         }          
     }
 
+    //find out if table is opened
     $scope.isSelected = function(table) {
         for(var i in $scope.clicked) {
             if(table.parent == $scope.clicked[i])
@@ -450,6 +489,7 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
         return false;
     }
 
+    //this function takes care of sorting by name or date
     $scope.sort = function(type, tables) {
 
         if(!tables) {
@@ -460,6 +500,7 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
                 tables = $scope.filteredTables;
         }
 
+        //alphabetical order
         if(type == 0) {
             tables.sort(function(a,b){
                 if (a.name.substring(1) < b.name.substring(1))
@@ -469,6 +510,8 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
                 return 0;
             });
         }
+
+        //reverse alphabetical order
         else if (type == 1) {
             tables.sort(function(a,b){
                 if (a.name.substring(1) > b.name.substring(1))
@@ -479,16 +522,21 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
             });
         }
           
+        //sort from newest to oldest date
         else if (type == 2 ) {
             tables.sort(function(a,b){
                 return b.updateTimeInMilies - a.updateTimeInMilies;
             });
         }
+
+        //sort from oldest to newest date
         else if (type == 3 ) {
             tables.sort(function(a,b){
                 return a.updateTimeInMilies - b.updateTimeInMilies;
             });           
         }
+
+        //do the same recursively for dependencies
         for(var i in tables) {
             if(tables[i].dependencies.length > 0) {
                 $scope.sort(type, tables[i].dependencies);
@@ -496,6 +544,7 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
         }
     }
 
+    //switch between warehouse and stage area
     $scope.tab = function (tabIndex) {
      
         if (tabIndex == 1){
@@ -525,12 +574,14 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
         }
     }
 
+    //triggered on button click clear
     $scope.clearQuery = function() {
         $scope.query = "";
         if( $scope.searchString)
             $scope.searchString.query = [];
     }
 
+    //no queries found, remove the query filter
     $scope.checkEmpty = function() {
         if($scope.query == "") {
             if( $scope.searchString)
@@ -539,6 +590,7 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
     }
 });
 
+//initialize calendar
 $( "#datepicker" ).datepicker({
     inline: true,
     dateFormat: "dd/mm/yy"

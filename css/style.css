@@ -62,7 +62,6 @@ button {
 
 button.chosen {
 	background-color: #f1f1f1;
-	border-right: 1px solid gray;
 }
 
 button.notchosen {
