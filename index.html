@@ -11,7 +11,9 @@
         <script src="./javascript/jquery.js"></script>
         <script src="./javascript/jquery-ui.min.js"></script>
         <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular.min.js"></script> 
-        <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-route.js"></script> 
+        <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-route.min.js"></script>
+        <script src="http://ajax.googleapis.com/ajax/libs/angularjs/1.4.8/angular-sanitize.min.js"></script> 
+        <script src="https://cdnjs.cloudflare.com/ajax/libs/ng-csv/0.3.6/ng-csv.min.js"></script> 
         <div class="left"></div>
         <div class="middle" ng-app="app" ng-controller="LoadTables">
             <div class="query">
@@ -21,9 +23,11 @@
                 <button type="button" ng-click="clearQuery()">Clear</button> 
             </div>
             <br/> 
-            <div class="search">
-                <div><input type="text" id="datepicker" placeholder=" Date" ng-model="searchString.date"></div>
-                <div id="search"><input type="text" placeholder=" Search" ng-model="searchString.name"></div>
+            <div class="filter">
+                <div id="date"><input type="text" id="datepicker" placeholder=" Date" ng-model="filter.date"></div>
+                <div id="search"><input type="text" placeholder=" Search" ng-model="filter.name"></div>
+                <dropdown list="schemes" selected="filter.scheme"></dropdown>
+                <button type="button" ng-csv="exportArray" filename="exportedTables.csv">Export</button>
             </div>
 
             <div class="tabs">

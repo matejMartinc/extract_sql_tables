@@ -1,4 +1,4 @@
-var app = angular.module('app', ['ngRoute']);
+var app = angular.module('app', ['ngRoute', 'ngSanitize', 'ngCsv']);
 
 app.service('DataSort', function($http){
 
@@ -60,7 +60,6 @@ app.service('DataSort', function($http){
             query = query.replace(/ (left|right) (outer )*join /g, ' join ');
             query = query.replace(/( inner| cross)* join/g, ' join');
             query = query.replace(/natural (((left|right)( outer)*) |inner )*join /g, ' join ');
-            console.log(query);
 
             //find tables in cleaned query
             tableExpression(query);
@@ -304,16 +303,23 @@ app.service('DataSort', function($http){
         }
     }
 
-    //find only tables with dependencies - warehouse
-    this.filterData = function(data) {
-        var filteredTables = [];
+    //split data to warehouse and stage area
+    this.splitData = function(data) {
+        var warehouseTables = [];
+        var stageAreaTables = [];
+        var schemes = ["all"];
         for(var i in data) {
             
-            if(data[i].dependencies.length != 0) {
-                filteredTables.push(data[i]);
-            }
+            if(data[i].dependencies.length != 0) 
+                warehouseTables.push(data[i]); 
+            else
+                stageAreaTables.push(data[i]);
+            var scheme = (data[i].name.split(".")[0]).substring(2);
+            if(schemes.indexOf(scheme) == -1 )
+                schemes.push(scheme); 
+
         }
-        return filteredTables;
+        return [warehouseTables, stageAreaTables, schemes];
     }
 
     //recursive function for date filtering
@@ -353,18 +359,10 @@ app.service('DataSort', function($http){
         }); 
 
     }
-});
 
-//filter tables list
-app.filter('searchFor', function(DataSort){
-
-    // All filters must return a function. The first parameter
-    // is the data that is to be filtered, and the second is an
-    // argument that may be passed with a colon (searchFor:searchString)
-
-    return function(arr, searchString){
-
-        if(!searchString){
+    this.filter = function(arr, scope) {
+        
+        if(!scope.filter){
             return arr;
         }
         
@@ -372,20 +370,29 @@ app.filter('searchFor', function(DataSort){
         var filteredResult = [];
 
         //filter by list of tables found in the query
-        if(searchString.query && searchString.query.length > 1) {
-
+        if(scope.filter.query && scope.filter.query.length > 0) {
+            
             // Using the forEach helper method to loop through the array
             angular.forEach(result, function(item){
 
-                for(var i in searchString.query) {
-                    var tableName = searchString.query[i].toLowerCase();
+                for(var i in scope.filter.query) {
+                    var tableName = scope.filter.query[i].toLowerCase();
                     if (tableName.split(".").length > 1) {
-                        tableName = tableName.split(".")[1];
+                        if(item.name.toLowerCase().substring(2) == tableName){
+                            
+                            filteredResult.push(item);
+                            break;
+                        }
+                        
+                    }
+                    else {      
+                        if(item.name.toLowerCase().split(".")[1] == tableName){
+                            filteredResult.push(item);
+                            break;
+                        }
                     }
 
-                    if(item.name.toLowerCase().split(".")[1] == tableName){
-                        filteredResult.push(item);
-                    }
+                    
                 }
 
             });
@@ -395,8 +402,8 @@ app.filter('searchFor', function(DataSort){
         }
 
         //filter by name
-        if(searchString.name) {
-            var name = searchString.name.toLowerCase();
+        if(scope.filter.name) {
+            var name = scope.filter.name.toLowerCase();
 
             // Using the forEach helper method to loop through the array
             angular.forEach(result, function(item){
@@ -411,26 +418,107 @@ app.filter('searchFor', function(DataSort){
             filteredResult = [];
         }
 
-        //filter by date 
-        if(searchString.date || searchString.date == ""){
-            if(searchString.date.length > 9) {
+        //filter by scheme
+        if(scope.filter.scheme != "all") {
             
-                var day = searchString.date.split("/")[0];
-                var month = searchString.date.split("/")[1];
-                var year = searchString.date.split("/")[2];
+            var scheme = scope.filter.scheme.toLowerCase();
+
+            if(scope.filter.query && scope.filter.query.length > 0) {
+                var query = {};
+
+                angular.forEach(result, function(item){
+                    for(var i in scope.filter.query) {
+                        var tableName = scope.filter.query[i].toLowerCase();
+                        if(item.name.toLowerCase().substring(2) == tableName) {
+                            filteredResult.push(item);
+                            break;
+                        }
+                        else if(tableName.split(".").length == 1){
+                            if(item.name.toLowerCase().split(".")[1] == tableName) {
+                                if(!query.hasOwnProperty(tableName)) {
+                                     query[tableName] = [[],[]]; 
+                                }
+                                query[tableName][0].push(item.name.split(".")[0]);
+                                query[tableName][1].push(item);
+                                break;
+                            }
+                        }
+                    
+                    }
+                    
+                });
+                console.log(query);
+                
+                for(var name in query) {
+                    if (query.hasOwnProperty(name)) {
+                        var filter1 = "- " + scope.filter.scheme;
+                        var filter2 = "+ " + scope.filter.scheme;
+                        if(query[name][0].length == 1 || (query[name][0].indexOf(filter1) == -1 && query[name][0].indexOf(filter2) == -1)) {
+                            for(var i in query[name][0]) {
+                                filteredResult.push(query[name][1][i]);
+                            }
+                            
+                        }
+                        else {
+                            if(query[name][0].indexOf(filter1) != -1) {
+                                filteredResult.push(query[name][1][query[name][0].indexOf(filter1)]);
+                            }
+                            else {
+                                filteredResult.push(query[name][1][query[name][0].indexOf(filter2)]);
+                            }
+                        }
+                    }
+                }   
+            }
+
+            else {
+
+                // Using the forEach helper method to loop through the array
+                angular.forEach(result, function(item){
+
+                    if((item.name.toLowerCase().split(".")[0]).substring(2) == scheme){
+                        filteredResult.push(item);
+                    }
+
+                });
+            }
+
+            result = filteredResult;
+            filteredResult = [];
+            
+        }
+
+        //filter by date 
+        if(scope.filter.date || scope.filter.date == ""){
+            if(scope.filter.date.length > 9) {
+            
+                var day = scope.filter.date.split("/")[0];
+                var month = scope.filter.date.split("/")[1];
+                var year = scope.filter.date.split("/")[2];
                 var date = new Date(year, month - 1, day, 23, 59, 59, 0);
             }
 
             else {
                 var date = new Date();
             }
-            DataSort.changeDate(result, date);     
-        }  
+            scope.limit = date.getTime() - (1000 * 60 * 60 * 24 * 15);
+            me.changeDate(result, date);     
+        }
+
         return result;
     };
 
 });
 
+//filter tables list
+app.filter('searchFor', function(DataSort){
+
+    // All filters must return a function. The first parameter
+    // is the data that is to be filtered, and the second is an
+    // argument that may be passed with a colon (searchFor:filter)
+
+    return DataSort.filter;
+});
 
 // Config and Routes 
 app.config(function($routeProvider){
@@ -446,12 +534,22 @@ app.config(function($routeProvider){
 //controller for the app. Loads data and sorts it
 app.controller('LoadTables', function($scope, DataSort, $location) {
     DataSort.getData(function(data) {
-        DataSort.sortData(data, DataSort.tables, "");
-        $scope.tables = DataSort.tables;     
-        $scope.filteredTables = DataSort.filterData($scope.tables);
+        DataSort.sortData(data, DataSort.tables, "");     
+        
+        var splitedData = DataSort.splitData(DataSort.tables);
+
+        $scope.warehouseTables = splitedData[0];
+        $scope.stageAreaTables = splitedData[1];
+        $scope.filter = {};
+        $scope.query;
+        $scope.schemes = splitedData[2];
+        $scope.filter.scheme = "all";
+        $scope.sort(3, $scope.warehouseTables);
+        $scope.sort(3, $scope.stageAreaTables);
+        $scope.sortOrder = 3;
     });
 
-    $scope.limit = new Date("2014/12/14 1:02").getTime();
+    $scope.limit = new Date().getTime() - (1000 * 60 * 60 * 24 * 15);
 
     //list of 'opened tables' (dependencies are visible)
     $scope.clicked = [];
@@ -461,22 +559,20 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
         $scope.warehouse = true;
     else
         $scope.warehouse = false;
-    $scope.searchString;
-    console.log($location.path());
-    $scope.query;
 
-    //on table click push table to list of openend tables or remove it form the list if table is there
+    //on table click push table to list of openend tables or remove it from the list if table is already there
     $scope.isClicked = function(table) {
         var index = $scope.clicked.indexOf(table.id);
-        
-        if(index == -1) {
-            table.name = "-"+table.name.substring(1);
-            $scope.clicked.push(table.id);
-        }    
-        else {
-            table.name = "+"+table.name.substring(1);
-            $scope.clicked.splice(index, 1);
-        }          
+        if(table.dependencies.length > 0) {
+            if(index == -1) {
+                table.name = "-"+table.name.substring(1);
+                $scope.clicked.push(table.id);
+            }    
+            else {
+                table.name = "+"+table.name.substring(1);
+                $scope.clicked.splice(index, 1);
+            }    
+        }      
     }
 
     //find out if table is opened
@@ -492,12 +588,14 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
     //this function takes care of sorting by name or date
     $scope.sort = function(type, tables) {
 
+        $scope.sortOrder = type;
+
         if(!tables) {
         
             if(!$scope.warehouse)
-                tables = $scope.tables;
+                tables = $scope.stageAreaTables;
             else
-                tables = $scope.filteredTables;
+                tables = $scope.warehouseTables;
         }
 
         //alphabetical order
@@ -568,8 +666,9 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
                 $scope.query = "no tables found"
             
             else {  
-                $scope.searchString = {};
-                $scope.searchString.query = DataSort.queryTables;
+                if(!$scope.filter)
+                    $scope.filter = {};
+                $scope.filter.query = DataSort.queryTables;
             }
         }
     }
@@ -577,15 +676,126 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
     //triggered on button click clear
     $scope.clearQuery = function() {
         $scope.query = "";
-        if( $scope.searchString)
-            $scope.searchString.query = [];
+        if( $scope.filter)
+            $scope.filter.query = [];
     }
 
     //no queries found, remove the query filter
     $scope.checkEmpty = function() {
         if($scope.query == "") {
-            if( $scope.searchString)
-                $scope.searchString.query = [];
+            if( $scope.filter)
+                $scope.filter.query = [];
+        }
+    }
+
+    $scope.exportArray = function() {
+        
+        var csvArray = [];
+        var query = $scope.query;
+        query = query.replace(/\n/g, ' ');
+        query = query.replace(/"/g, '');
+        if(query && query.length > 0) {
+            var queryLine = [];
+            var queryPart = "";
+            counter = 0;
+            for (var i = 0; i < query.length; i++) {
+                if(counter == 0) {
+                    queryPart+="##";
+                }
+                if(query[i] == ",") {
+                    queryLine.push(queryPart);
+                    queryPart = "";
+                }
+                else {
+                    queryPart += query[i];
+                }
+                counter++;
+
+                if(i == query.length - 1) {
+                    queryLine.push(queryPart);
+                    csvArray.push(queryLine);
+                }
+                if(counter >= 80) {
+                    if(query[i] == " ") {
+                        queryLine.push(queryPart);
+                        csvArray.push(queryLine);
+                        queryPart = "";
+                        counter = 0;
+                        queryLine = [];
+                    }
+                }
+            }
+        }
+        $scope.sort($scope.sortOrder, $scope.warehouseTables);
+        $scope.sort($scope.sortOrder, $scope.stageAreaTables);
+        csvArray.push(["##warehouse"]);
+        $scope.createCsv(DataSort.filter($scope.warehouseTables, $scope), csvArray, "");
+        csvArray.push(["##stage area"]);
+        $scope.createCsv(DataSort.filter($scope.stageAreaTables, $scope), csvArray, "");
+        return csvArray;
+    } 
+
+    $scope.createCsv = function(tables, array, space, scope) {
+        for(var i in tables) {
+            var tableArray = [];
+            tableArray.push("##" + space + tables[i].name.substring(2));
+            tableArray.push(tables[i].updateTime);
+            if(tables[i].updateTimeInMilies > $scope.limit) {
+                tableArray.push("OK");
+            }
+            else {
+                tableArray.push("NOT OK");
+            }
+           
+            array.push(tableArray);
+            if(tables[i].dependencies.length > 0) {
+                var newSpace = space + "\t"
+                $scope.createCsv(tables[i].dependencies, array , newSpace, scope);
+            }
+        }
+    }
+    
+});
+
+app.run(function($rootScope) {
+    angular.element(document).on("click", function(e) {
+        $rootScope.$broadcast("documentClicked", angular.element(e.target));
+    });
+});
+
+app.directive("dropdown", function($rootScope) {
+    return {
+        restrict: "E",
+        templateUrl: "./dropdown.html",
+        scope: {
+            list: "=",
+            selected: "=",
+        },
+        link: function(scope) {
+            scope.listVisible = false;
+
+            scope.select = function(item) {
+                scope.selected = item;
+            };
+
+            scope.isSelected = function(item) {
+                return item === scope.selected;
+            };
+
+            scope.show = function() {
+                scope.listVisible = true;
+            };
+
+            $rootScope.$on("documentClicked", function(inner, target) {
+                if (!$(target[0]).is(".dropdown-display.clicked") && !$(target[0]).parents(".dropdown-display.clicked").length > 0)
+                    scope.$apply(function() {
+                        scope.listVisible = false;
+                    });
+            });
+
+            scope.$watch("selected", function(value) {
+                scope.display = scope.selected;
+            });
         }
     }
 });
