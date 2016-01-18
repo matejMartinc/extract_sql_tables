@@ -129,6 +129,29 @@ app.service('DataSort', function($http){
         if (innerText.length != 0) return innerText;
     }
 
+    this.checkForUndefinedTables = function(tableArray) {
+        var noMatch = "";
+        for(var i in me.queryTables) {
+            var tableName = me.queryTables[i].toLowerCase();
+            for(var j in tableArray){
+                
+                if (tableName.split(".").length > 1) {
+                    if(tableArray[j].name.toLowerCase().substring(2) == tableName){
+                        break;
+                    }       
+                }
+                else {      
+                    if(tableArray[j].name.toLowerCase().split(".")[1] == tableName){
+                        break;
+                    }
+                }
+                if(j == tableArray.length - 1)
+                    noMatch += "\n" + me.queryTables[i];
+            }
+        } 
+        return noMatch;
+    }
+
     var CSVToArray = function( strData, strDelimiter ){
         // Check to see if the delimiter is defined. If not,
         // then default to comma.
@@ -307,7 +330,7 @@ app.service('DataSort', function($http){
     this.splitData = function(data) {
         var warehouseTables = [];
         var stageAreaTables = [];
-        var schemes = ["all"];
+        var schemes = ["all schemes"];
         for(var i in data) {
             
             if(data[i].dependencies.length != 0) 
@@ -419,20 +442,24 @@ app.service('DataSort', function($http){
         }
 
         //filter by scheme
-        if(scope.filter.scheme != "all") {
+        if(scope.filter.scheme != "all schemes") {
             
             var scheme = scope.filter.scheme.toLowerCase();
 
+            //if we are filtering query, scheme filter works differently 
             if(scope.filter.query && scope.filter.query.length > 0) {
                 var query = {};
 
                 angular.forEach(result, function(item){
                     for(var i in scope.filter.query) {
                         var tableName = scope.filter.query[i].toLowerCase();
+
+                        //find tables that have scheme defined and include them in result
                         if(item.name.toLowerCase().substring(2) == tableName) {
                             filteredResult.push(item);
-                            break;
                         }
+
+                        //find tables without defined scheme
                         else if(tableName.split(".").length == 1){
                             if(item.name.toLowerCase().split(".")[1] == tableName) {
                                 if(!query.hasOwnProperty(tableName)) {
@@ -440,36 +467,53 @@ app.service('DataSort', function($http){
                                 }
                                 query[tableName][0].push(item.name.split(".")[0]);
                                 query[tableName][1].push(item);
-                                break;
                             }
                         }
                     
                     }
                     
                 });
-                console.log(query);
+               
                 
                 for(var name in query) {
                     if (query.hasOwnProperty(name)) {
                         var filter1 = "- " + scope.filter.scheme;
                         var filter2 = "+ " + scope.filter.scheme;
+
+                        //if there is just one scheme for the table possible or filtered scheme is not possible,
+                        //include the tables from all schemes that are not defined by filter
                         if(query[name][0].length == 1 || (query[name][0].indexOf(filter1) == -1 && query[name][0].indexOf(filter2) == -1)) {
+                            
                             for(var i in query[name][0]) {
                                 filteredResult.push(query[name][1][i]);
                             }
                             
                         }
+
+                        //otherwise include just the table from a filtered scheme
                         else {
                             if(query[name][0].indexOf(filter1) != -1) {
                                 filteredResult.push(query[name][1][query[name][0].indexOf(filter1)]);
                             }
-                            else {
+                            else if(query[name][0].indexOf(filter2) != -1) {
                                 filteredResult.push(query[name][1][query[name][0].indexOf(filter2)]);
                             }
                         }
                     }
-                }   
+                } 
+
+                //remove duplicates from the result
+                var names = []
+                var noDuplicates = [];
+                for(var i in filteredResult) {
+                    if(names.indexOf(filteredResult[i].id) == -1) {
+                        names.push(filteredResult[i].id);
+                        noDuplicates.push(filteredResult[i]);
+                    }
+                }
+                filteredResult = noDuplicates;
             }
+            
 
             else {
 
@@ -482,9 +526,10 @@ app.service('DataSort', function($http){
 
                 });
             }
-
+            
             result = filteredResult;
             filteredResult = [];
+
             
         }
 
@@ -504,7 +549,7 @@ app.service('DataSort', function($http){
             scope.limit = date.getTime() - (1000 * 60 * 60 * 24 * 15);
             me.changeDate(result, date);     
         }
-
+        
         return result;
     };
 
@@ -543,7 +588,7 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
         $scope.filter = {};
         $scope.query;
         $scope.schemes = splitedData[2];
-        $scope.filter.scheme = "all";
+        $scope.filter.scheme = "all schemes";
         $scope.sort(3, $scope.warehouseTables);
         $scope.sort(3, $scope.stageAreaTables);
         $scope.sortOrder = 3;
@@ -662,13 +707,24 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
         //extract tables
         if(query) {
             DataSort.extractTables(query);
-            if(DataSort.queryTables < 1) 
-                $scope.query = "no tables found"
-            
+            if(DataSort.queryTables < 1) { 
+                $scope.query += "\n\nno tables found";
+                return;
+            }
             else {  
                 if(!$scope.filter)
                     $scope.filter = {};
                 $scope.filter.query = DataSort.queryTables;
+            }
+
+            //check for tables in the query that are not in the list
+            if($scope.warehouse)
+                var undefinedTables = DataSort.checkForUndefinedTables($scope.warehouseTables);
+            else
+                var undefinedTables = DataSort.checkForUndefinedTables($scope.stageAreaTables);
+            if(undefinedTables.length > 0) {
+                $scope.query += "\n\nFollowing tables from query were not found in a list:";
+                $scope.query += undefinedTables;
             }
         }
     }
