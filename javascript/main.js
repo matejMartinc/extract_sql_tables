@@ -129,6 +129,7 @@ app.service('DataSort', function($http){
         if (innerText.length != 0) return innerText;
     }
 
+    //find tables from query that are not defined in the list 
     this.checkForUndefinedTables = function(tableArray) {
         var noMatch = "";
         for(var i in me.queryTables) {
@@ -586,7 +587,7 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
         $scope.warehouseTables = splitedData[0];
         $scope.stageAreaTables = splitedData[1];
         $scope.filter = {};
-        $scope.query;
+        $scope.query = "";
         $scope.schemes = splitedData[2];
         $scope.filter.scheme = "all schemes";
         $scope.sort(3, $scope.warehouseTables);
@@ -743,14 +744,17 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
                 $scope.filter.query = [];
         }
     }
-
+    
+    //triggered on export button click
     $scope.exportArray = function() {
         
         var csvArray = [];
         var query = $scope.query;
         query = query.replace(/\n/g, ' ');
         query = query.replace(/"/g, '');
-        if(query && query.length > 0) {
+
+        //if query, split it into 80 characters long lines
+        if(query.length > 0) {
             var queryLine = [];
             var queryPart = "";
             counter = 0;
@@ -782,8 +786,12 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
                 }
             }
         }
+
+        //sort tables the same way as they are sorted on the page
         $scope.sort($scope.sortOrder, $scope.warehouseTables);
         $scope.sort($scope.sortOrder, $scope.stageAreaTables);
+
+        //filter tables
         csvArray.push(["##warehouse"]);
         $scope.createCsv(DataSort.filter($scope.warehouseTables, $scope), csvArray, "");
         csvArray.push(["##stage area"]);
@@ -791,6 +799,7 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
         return csvArray;
     } 
 
+    //recursive function for writing tables to the array as string that is then written to csv file
     $scope.createCsv = function(tables, array, space, scope) {
         for(var i in tables) {
             var tableArray = [];
@@ -813,12 +822,14 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
     
 });
 
+//initialize dropdown for schemes
 app.run(function($rootScope) {
     angular.element(document).on("click", function(e) {
         $rootScope.$broadcast("documentClicked", angular.element(e.target));
     });
 });
 
+//create dropdown directive
 app.directive("dropdown", function($rootScope) {
     return {
         restrict: "E",

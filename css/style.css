@@ -224,7 +224,7 @@ dropdown .down {
 	margin : 0 auto;
 }
 
-@media screen and (max-width: 800px) {
+@media screen and (max-width: 920px) {
     .left {
 		width:0%;
 	}
