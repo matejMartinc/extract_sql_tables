@@ -1,3 +1,4 @@
+
 var app = angular.module('app', ['ngRoute', 'ngSanitize', 'ngCsv']);
 
 app.service('DataSort', function($http){
@@ -130,8 +131,9 @@ app.service('DataSort', function($http){
     }
 
     //find tables from query that are not defined in the list 
-    this.checkForUndefinedTables = function(tableArray) {
+    this.checkForUndefinedTables = function(tableArray, scheme) {
         var noMatch = "";
+        var noScheme = ""
         for(var i in me.queryTables) {
             var tableName = me.queryTables[i].toLowerCase();
             for(var j in tableArray){
@@ -141,16 +143,30 @@ app.service('DataSort', function($http){
                         break;
                     }       
                 }
-                else {      
-                    if(tableArray[j].name.toLowerCase().split(".")[1] == tableName){
+                else { 
+                    if(scheme == "choose your scheme") {
+                        noScheme += "\n" + me.queryTables[i];
                         break;
                     }
+                    else {
+                        if(tableArray[j].name.toLowerCase().substring(2) == scheme.toLowerCase() + "." + tableName){
+                            me.queryTables[i] = scheme + "." + tableName;
+                            break;
+                        }   
+                    }     
                 }
-                if(j == tableArray.length - 1)
-                    noMatch += "\n" + me.queryTables[i];
+                if(j == tableArray.length - 1) {
+                    if (tableName.split(".").length > 1) {
+                        noMatch += "\n" + me.queryTables[i];
+                    }
+
+                    else {
+                        noMatch += "\n" + scheme + "." + me.queryTables[i];
+                    }
+                }
             }
         } 
-        return noMatch;
+        return [noMatch, noScheme];
     }
 
     var CSVToArray = function( strData, strDelimiter ){
@@ -332,6 +348,7 @@ app.service('DataSort', function($http){
         var warehouseTables = [];
         var stageAreaTables = [];
         var schemes = ["all schemes"];
+        var addSchemes = ["choose your scheme"];
         for(var i in data) {
             
             if(data[i].dependencies.length != 0) 
@@ -339,11 +356,13 @@ app.service('DataSort', function($http){
             else
                 stageAreaTables.push(data[i]);
             var scheme = (data[i].name.split(".")[0]).substring(2);
-            if(schemes.indexOf(scheme) == -1 )
-                schemes.push(scheme); 
+            if(schemes.indexOf(scheme) == -1 ) {
+                schemes.push(scheme);
+                addSchemes.push(scheme);  
+            }
 
         }
-        return [warehouseTables, stageAreaTables, schemes];
+        return [warehouseTables, stageAreaTables, schemes, addSchemes];
     }
 
     //recursive function for date filtering
@@ -389,6 +408,8 @@ app.service('DataSort', function($http){
         if(!scope.filter){
             return arr;
         }
+
+        console.log("jej2")
         
         var result = arr;
         var filteredResult = [];
@@ -401,28 +422,18 @@ app.service('DataSort', function($http){
 
                 for(var i in scope.filter.query) {
                     var tableName = scope.filter.query[i].toLowerCase();
-                    if (tableName.split(".").length > 1) {
-                        if(item.name.toLowerCase().substring(2) == tableName){
-                            
-                            filteredResult.push(item);
-                            break;
-                        }
-                        
-                    }
-                    else {      
-                        if(item.name.toLowerCase().split(".")[1] == tableName){
-                            filteredResult.push(item);
-                            break;
-                        }
-                    }
-
-                    
+                   
+                    if(item.name.toLowerCase().substring(2) == tableName){       
+                        filteredResult.push(item);
+                        break;
+                    }      
                 }
-
             });
 
             result = filteredResult;
             filteredResult = [];
+
+
         }
 
         //filter by name
@@ -443,12 +454,12 @@ app.service('DataSort', function($http){
         }
 
         //filter by scheme
-        if(scope.filter.scheme != "all schemes") {
+        if(scope.filter.chooseScheme != "all schemes") {
             
-            var scheme = scope.filter.scheme.toLowerCase();
+            var scheme = scope.filter.chooseScheme.toLowerCase();
 
             //if we are filtering query, scheme filter works differently 
-            if(scope.filter.query && scope.filter.query.length > 0) {
+            /*if(scope.filter.query && scope.filter.query.length > 0) {
                 var query = {};
 
                 angular.forEach(result, function(item){
@@ -514,25 +525,25 @@ app.service('DataSort', function($http){
                 }
                 filteredResult = noDuplicates;
             }
+            */
+
             
 
-            else {
+            // filter by scheme
+            angular.forEach(result, function(item){
 
-                // Using the forEach helper method to loop through the array
-                angular.forEach(result, function(item){
+                if((item.name.toLowerCase().split(".")[0]).substring(2) == scheme){
+                    filteredResult.push(item);
+                }
 
-                    if((item.name.toLowerCase().split(".")[0]).substring(2) == scheme){
-                        filteredResult.push(item);
-                    }
-
-                });
-            }
+            });
+            
             
             result = filteredResult;
-            filteredResult = [];
-
-            
+            filteredResult = [];    
         }
+
+
 
         //filter by date 
         if(scope.filter.date || scope.filter.date == ""){
@@ -547,7 +558,7 @@ app.service('DataSort', function($http){
             else {
                 var date = new Date();
             }
-            scope.limit = date.getTime() - (1000 * 60 * 60 * 24 * 15);
+            scope.limit = date.getTime() - (1000 * 60 * 60 * 24 * dayLimit);
             me.changeDate(result, date);     
         }
         
@@ -589,13 +600,15 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
         $scope.filter = {};
         $scope.query = "";
         $scope.schemes = splitedData[2];
-        $scope.filter.scheme = "all schemes";
+        $scope.addSchemes = splitedData[3];
+        $scope.filter.chooseScheme = "all schemes";
+        $scope.filter.addScheme = "choose your scheme";
         $scope.sort(3, $scope.warehouseTables);
         $scope.sort(3, $scope.stageAreaTables);
         $scope.sortOrder = 3;
     });
 
-    $scope.limit = new Date().getTime() - (1000 * 60 * 60 * 24 * 15);
+    $scope.limit = new Date().getTime() - (1000 * 60 * 60 * 24 * dayLimit);
 
     //list of 'opened tables' (dependencies are visible)
     $scope.clicked = [];
@@ -606,7 +619,7 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
     else
         $scope.warehouse = false;
 
-    //on table click push table to list of openend tables or remove it from the list if table is already there
+    //on table click push table to the list of openend tables or remove it from the list if table is already there
     $scope.isClicked = function(table) {
         var index = $scope.clicked.indexOf(table.id);
         if(table.dependencies.length > 0) {
@@ -720,12 +733,18 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
 
             //check for tables in the query that are not in the list
             if($scope.warehouse)
-                var undefinedTables = DataSort.checkForUndefinedTables($scope.warehouseTables);
+                var undefinedTables = DataSort.checkForUndefinedTables($scope.warehouseTables, $scope.filter.addScheme);
             else
-                var undefinedTables = DataSort.checkForUndefinedTables($scope.stageAreaTables);
-            if(undefinedTables.length > 0) {
+                var undefinedTables = DataSort.checkForUndefinedTables($scope.stageAreaTables, $scope.filter.addScheme);
+            if(undefinedTables[0].length > 0) {
                 $scope.query += "\n\nFollowing tables from query were not found in a list:";
-                $scope.query += undefinedTables;
+                $scope.query += undefinedTables[0];
+                $scope.filter.query = ["error"];
+            }
+            if(undefinedTables[1].length > 0) {
+                $scope.query += "\n\nNo scheme is specified for tables:";
+                $scope.query += undefinedTables[1];
+                $scope.filter.query = ["error"];
             }
         }
     }

@@ -21,12 +21,15 @@
                 </textarea>
                 <button type="button" ng-click="getQuery(query)">Get tables</button>
                 <button type="button" ng-click="clearQuery()">Clear</button> 
+                <dropdown list="addSchemes" selected="filter.addScheme"></dropdown>
             </div>
+            <br/>
+            <br/>
             <br/> 
             <div class="filter">
                 <div id="date"><input type="text" id="datepicker" placeholder=" Date" ng-model="filter.date"></div>
                 <div id="search"><input type="text" placeholder=" Search" ng-model="filter.name"></div>
-                <dropdown list="schemes" selected="filter.scheme"></dropdown>
+                <dropdown list="schemes" selected="filter.chooseScheme"></dropdown>
                 <button type="button" ng-csv="exportArray" filename="exportedTables.csv">Export</button>
             </div>
 
@@ -51,6 +54,7 @@
             <ul id="list"></ul> 
         </div>
         <div class="right"></div>
+         <script src="./javascript/configVariables.js" charset="utf-8"></script> 
         <script src="./javascript/main.js" charset="utf-8"></script>  
          
     </body>
