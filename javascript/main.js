@@ -137,17 +137,24 @@ app.service('DataSort', function($http){
         for(var i in me.queryTables) {
             var tableName = me.queryTables[i].toLowerCase();
             for(var j in tableArray){
-                
+
+                //if teble has scheme defined and is in the list, do nothing
                 if (tableName.split(".").length > 1) {
                     if(tableArray[j].name.toLowerCase().substring(2) == tableName){
                         break;
                     }       
                 }
+
+                //there is no scheme defined
                 else { 
+
+                    //add table without a scheme in the list of tables without schemes if no scheme to be added is defined
                     if(scheme == "choose your scheme") {
                         noScheme += "\n" + me.queryTables[i];
                         break;
                     }
+
+                    //add specified scheme to the table
                     else {
                         if(tableArray[j].name.toLowerCase().substring(2) == scheme.toLowerCase() + "." + tableName){
                             me.queryTables[i] = scheme + "." + tableName;
@@ -155,6 +162,8 @@ app.service('DataSort', function($http){
                         }   
                     }     
                 }
+
+                //if table was not found in the list, add table to the list of undefined tables
                 if(j == tableArray.length - 1) {
                     if (tableName.split(".").length > 1) {
                         noMatch += "\n" + me.queryTables[i];
@@ -169,7 +178,9 @@ app.service('DataSort', function($http){
         return [noMatch, noScheme];
     }
 
+    //write CSV data ta javascript array
     var CSVToArray = function( strData, strDelimiter ){
+        
         // Check to see if the delimiter is defined. If not,
         // then default to comma.
         strDelimiter = (strDelimiter || ",");
@@ -400,7 +411,6 @@ app.service('DataSort', function($http){
                 }          
             }
         }); 
-
     }
 
     this.filter = function(arr, scope) {
@@ -408,8 +418,6 @@ app.service('DataSort', function($http){
         if(!scope.filter){
             return arr;
         }
-
-        console.log("jej2")
         
         var result = arr;
         var filteredResult = [];
@@ -432,8 +440,6 @@ app.service('DataSort', function($http){
 
             result = filteredResult;
             filteredResult = [];
-
-
         }
 
         //filter by name
@@ -458,92 +464,17 @@ app.service('DataSort', function($http){
             
             var scheme = scope.filter.chooseScheme.toLowerCase();
 
-            //if we are filtering query, scheme filter works differently 
-            /*if(scope.filter.query && scope.filter.query.length > 0) {
-                var query = {};
-
-                angular.forEach(result, function(item){
-                    for(var i in scope.filter.query) {
-                        var tableName = scope.filter.query[i].toLowerCase();
-
-                        //find tables that have scheme defined and include them in result
-                        if(item.name.toLowerCase().substring(2) == tableName) {
-                            filteredResult.push(item);
-                        }
-
-                        //find tables without defined scheme
-                        else if(tableName.split(".").length == 1){
-                            if(item.name.toLowerCase().split(".")[1] == tableName) {
-                                if(!query.hasOwnProperty(tableName)) {
-                                     query[tableName] = [[],[]]; 
-                                }
-                                query[tableName][0].push(item.name.split(".")[0]);
-                                query[tableName][1].push(item);
-                            }
-                        }
-                    
-                    }
-                    
-                });
-               
-                
-                for(var name in query) {
-                    if (query.hasOwnProperty(name)) {
-                        var filter1 = "- " + scope.filter.scheme;
-                        var filter2 = "+ " + scope.filter.scheme;
-
-                        //if there is just one scheme for the table possible or filtered scheme is not possible,
-                        //include the tables from all schemes that are not defined by filter
-                        if(query[name][0].length == 1 || (query[name][0].indexOf(filter1) == -1 && query[name][0].indexOf(filter2) == -1)) {
-                            
-                            for(var i in query[name][0]) {
-                                filteredResult.push(query[name][1][i]);
-                            }
-                            
-                        }
-
-                        //otherwise include just the table from a filtered scheme
-                        else {
-                            if(query[name][0].indexOf(filter1) != -1) {
-                                filteredResult.push(query[name][1][query[name][0].indexOf(filter1)]);
-                            }
-                            else if(query[name][0].indexOf(filter2) != -1) {
-                                filteredResult.push(query[name][1][query[name][0].indexOf(filter2)]);
-                            }
-                        }
-                    }
-                } 
-
-                //remove duplicates from the result
-                var names = []
-                var noDuplicates = [];
-                for(var i in filteredResult) {
-                    if(names.indexOf(filteredResult[i].id) == -1) {
-                        names.push(filteredResult[i].id);
-                        noDuplicates.push(filteredResult[i]);
-                    }
-                }
-                filteredResult = noDuplicates;
-            }
-            */
-
-            
-
-            // filter by scheme
+            // loop through the list and add tables with correct scheme to the result
             angular.forEach(result, function(item){
 
                 if((item.name.toLowerCase().split(".")[0]).substring(2) == scheme){
                     filteredResult.push(item);
                 }
-
             });
-            
-            
+             
             result = filteredResult;
             filteredResult = [];    
         }
-
-
 
         //filter by date 
         if(scope.filter.date || scope.filter.date == ""){
@@ -573,7 +504,6 @@ app.filter('searchFor', function(DataSort){
     // All filters must return a function. The first parameter
     // is the data that is to be filtered, and the second is an
     // argument that may be passed with a colon (searchFor:filter)
-
     return DataSort.filter;
 });
 
@@ -588,7 +518,7 @@ app.config(function($routeProvider){
         })
 })
 
-//controller for the app. Loads data and sorts it
+//controller for the app. Loads data and arranges it. 
 app.controller('LoadTables', function($scope, DataSort, $location) {
     DataSort.getData(function(data) {
         DataSort.sortData(data, DataSort.tables, "");     
@@ -693,7 +623,7 @@ app.controller('LoadTables', function($scope, DataSort, $location) {
             });           
         }
 
-        //do the same recursively for dependencies
+        //do the sorting recursively for dependencies
         for(var i in tables) {
             if(tables[i].dependencies.length > 0) {
                 $scope.sort(type, tables[i].dependencies);
@@ -886,7 +816,7 @@ app.directive("dropdown", function($rootScope) {
     }
 });
 
-//initialize calendar
+//initialize jquery calendar
 $( "#datepicker" ).datepicker({
     inline: true,
     dateFormat: "dd/mm/yy"
